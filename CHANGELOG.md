@@ -4,6 +4,43 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-21
+
+### Added
+
+- **MCP server** (`mcp/server.mjs`): a dependency-free JSON-RPC 2.0 stdio server that
+  exposes the same operations to any MCP-capable host (Claude Code, Codex, Cursor, or
+  DSH through its own mcp-client plugin). Tools: `spec_build`, `spec_check`, `audit`,
+  `numbers`, `ledger`, `list_rules`.
+- **Host-agnostic engine** (`lib/core.js`): every operation now has exactly one
+  implementation (`specBuild`, `specCheck`, `audit`, `numbers`, `ledger`). The DSH
+  plugin and the MCP server are thin adapters over it, so the two surfaces cannot
+  drift apart; `lib/tools.js` holds no business logic as a result.
+- **`tests/mcp-smoke.mjs`**: drives the real MCP wire protocol over stdio — initialize
+  handshake, tool listing, one real call, unknown-tool and unknown-method errors — and
+  asserts the host-visible constraints (name shape, object input schemas, JSON payload).
+
+### Notes
+
+- Verified after the refactor: 20 modules parse, marketplace readiness 35, dependency-free
+  contract 33, MCP protocol 20, harness contract 38, tool e2e 4/4 calls.
+
+## [1.3.0] - 2026-09-21
+
+### Added
+
+- **Cross-harness skill packaging**: `skill/SKILL.md` is the single source of truth for
+  the procedure, loaded at runtime by `lib/skill.js` and also usable standalone from any
+  skills directory (`~/.dsh/skills`, `~/.agents/skills`, `<project>/.dsh/skills`).
+- Repository metadata for publishing: `marketplace-entry.json` (community registry
+  entry), `LICENSE`, CI workflow, and a `prepublishOnly` hook that runs the test suite.
+
+### Changed
+
+- Skill renamed conceptually from a paper procedure to a **deliverable** procedure: five
+  phases, six deliverable profiles, and an explicit rule that a rule which cannot run
+  reports `skipped` rather than passing.
+
 ## [1.2.0] - 2026-09-21
 
 ### Added
