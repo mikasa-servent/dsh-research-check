@@ -1,22 +1,44 @@
 /**
  * End-to-end test for the spec-conformance tool, including a negative case.
  *
- * Positive: build a spec from the bundled example requirements, then check a
- * real manuscript against it.
+ * Positive: build a spec from a requirements document, then check a real
+ * deliverable against it.
  * Negative: tighten the page limit and plant a sentinel identity word; both must
  * come back as hard failures, otherwise the grader is decorative.
+ *
+ * Inputs are configurable and the test skips (exit 0) when they are absent, so it
+ * never fails on a machine that has no project to point it at:
+ *   DSH_RESEARCH_WORKSPACE=<project root>           workspace
+ *   DSH_RESEARCH_REQUIREMENTS=<path|.doc|.docx>     requirements document
+ *   (CLI args 2/3 override the two above)
  *
  * Run from a profile directory so DSH peers resolve:
  *   node ./node_modules/dsh-research-check/tests/e2e-spec.mjs
  */
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 
-const workspace = process.argv[2] ?? "C:\\Users\\asus\\Desktop\\数学建模";
-const requirements = process.argv[3] ?? join(workspace, "format2026.doc");
+const workspace = resolve(
+	process.env.DSH_RESEARCH_WORKSPACE ?? process.argv[2] ?? process.cwd()
+);
+// A requirements document in any supported format is enough; the PDF is optional
+// because only layout rules need it.
+const requirements = resolve(
+	process.env.DSH_RESEARCH_REQUIREMENTS ?? process.argv[3] ?? join(workspace, "format2026.doc")
+);
 const pdf = process.argv[4] ?? "论文初稿.pdf";
+
+if (!existsSync(requirements)) {
+	console.log(JSON.stringify({
+		status: "skipped",
+		reason: "no requirements document to build a spec from",
+		looked_for: requirements,
+		hint: "set DSH_RESEARCH_REQUIREMENTS=<requirements file> to run it"
+	}, null, 2));
+	process.exit(0);
+}
 
 const registered = new Map();
 const ctx = {

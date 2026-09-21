@@ -1,10 +1,39 @@
 /**
  * End-to-end execution test: call each registered tool's `execute` the way the
- * registry does, against real files. Run from the profile directory so peers
- * resolve:
- *   node ./node_modules/dsh-research-check/tests/e2e.mjs
+ * registry does, against a real deliverable workspace.
+ *
+ * The workspace is configurable, because the files this needs (a built PDF, a
+ * support archive, manuscript sources) belong to the user's project, not to the
+ * plugin. Resolution order:
+ *   1. `DSH_RESEARCH_WORKSPACE` environment variable
+ *   2. first CLI argument
+ *   3. the current working directory
+ * When the expected files are absent the test reports SKIPPED and exits 0, so it
+ * never fails on a machine that simply has no manuscript to point it at.
+ *
+ * Run from a profile directory so DSH peers resolve:
+ *   DSH_RESEARCH_WORKSPACE=/path/to/project node ./node_modules/dsh-research-check/tests/e2e.mjs
  */
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { defineTool } from "@deepseek-ai/dsh-tools";
+
+const workspace = resolve(
+	process.env.DSH_RESEARCH_WORKSPACE ?? process.argv[2] ?? process.cwd()
+);
+
+const REQUIRED = ["论文初稿.pdf", "paper/sections/06_q3_model_and_solving.tex"];
+const missing = REQUIRED.filter((relative) => !existsSync(resolve(workspace, relative)));
+if (missing.length > 0) {
+	console.log(JSON.stringify({
+		status: "skipped",
+		reason: "workspace does not contain the files this test exercises",
+		workspace,
+		missing,
+		hint: "set DSH_RESEARCH_WORKSPACE=<project root> to run it against a real deliverable"
+	}, null, 2));
+	process.exit(0);
+}
 
 const registered = new Map();
 const ctx = {
@@ -14,18 +43,13 @@ const ctx = {
 const plugin = await import("dsh-research-check");
 plugin.apply(ctx, {});
 
-const workspace = "C:\\Users\\asus\\Desktop\\数学建模";
 const exec = { workspace: { cwd: workspace } };
-const out = {};
+const out = { workspace };
 
 out.audit = await call("research_audit", {
 	paper: "论文初稿.pdf",
 	archives: ["support.zip"],
-	manifest: [
-		"result1.xlsx", "result2.xlsx", "result3.xlsx", "result4-2.xlsx", "result4-3.xlsx",
-		"q1_final_two_stage.py", "q2_roll_v3.py", "q3_rolling_mpc.py",
-		"q4_microgrid_dispatch.py", "check_data.py", "test_epsilon.py", "AI 工具使用详情.pdf"
-	],
+	files: ["AI 工具使用详情.pdf"],
 	max_body_pages: 30
 });
 
@@ -70,5 +94,7 @@ function summarise(value) {
 }
 
 console.log(JSON.stringify(out, null, 2));
-const failed = Object.entries(out).filter(([, result]) => result.verdict === "fail");
-console.log(`\n[RESULT] ${Object.keys(out).length} tool calls, ${failed.length} returned verdict=fail`);
+const failed = Object.entries(out)
+	.filter(([key, result]) => key !== "workspace" && result.verdict === "fail");
+console.log(`\n[RESULT] ${Object.keys(out).length - 1} tool calls, ${failed.length} returned verdict=fail`);
+process.exitCode = failed.length === 0 ? 0 : 1;
