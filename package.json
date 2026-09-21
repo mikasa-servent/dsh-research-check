@@ -1,0 +1,97 @@
+{
+  "name": "dsh-research-check",
+  "version": "1.2.0",
+  "description": "Evidence-chain and conformance checks for any deliverable inside DeepSeek Harness: turn a requirements document (competition rules, journal guidelines, acceptance criteria, tender documents) into an executable spec and grade the deliverable against it; trace every number to a provenance ledger; audit files for identity leaks in PDF/OOXML metadata and archive-manifest consistency. Rule packs cover papers, technical documentation, software hand-overs, datasets and bids. · 交付物证据链与合规校验：把赛会/期刊/验收/招标要求变成可执行规格并逐条自查（页数、摘要单页、页边距、必备文件、许可与变更记录、数据字段与样本量、隐私字段、压缩包清单等），数字台账溯源，PDF 与 DOCX/XLSX 元数据身份信息排查。规则包覆盖论文、技术文档、软件交付、数据交付与标书。",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./skill": "./skill/",
+    "./python/*": "./python/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "python/",
+    "skill/",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.1.2-rc.1": "compatible"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-tools": ">=0.1.2-rc.1",
+    "@deepseek-ai/schemastery": "^3.18.2"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "plugin",
+    "conformance",
+    "specification",
+    "requirements",
+    "compliance",
+    "deliverable",
+    "provenance",
+    "ledger",
+    "reproducibility",
+    "paper",
+    "manuscript",
+    "documentation",
+    "acceptance",
+    "dataset",
+    "tender",
+    "lint",
+    "consistency"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "check": "node tests/syntax-check.mjs",
+    "registry": "node tests/registry-manifest.mjs",
+    "contract": "node tests/contract.mjs",
+    "e2e": "node tests/e2e.mjs",
+    "boot": "node tests/boot-check.mjs --profile web --port 0",
+    "smoke": "node tests/probe.mjs",
+    "test:hygiene": "python tests/test_hygiene_negative.py",
+    "link:peers": "node tests/link-peers.mjs",
+    "test": "npm run check && npm run registry && npm run contract && npm run e2e:spec && npm run test:spec && npm run test:generality",
+    "prepublishOnly": "npm run test",
+    "e2e:spec": "node tests/e2e-spec.mjs",
+    "test:spec": "python tests/test_spec_offline.py",
+    "test:generality": "python tests/test_generality.py"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

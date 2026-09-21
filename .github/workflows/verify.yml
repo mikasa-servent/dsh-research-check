@@ -1,0 +1,68 @@
+name: verify
+
+# Five-stage verification for a plugin that can break a harness boot.
+# Stage 5 (real profile boot) is intentionally excluded: it needs a DSH install and
+# a profile, so it stays a local `npm run boot` gate before publishing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22.x", "24.x"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No dependencies to install: the plugin is dependency-free by design, which is
+      # also what `npm run registry` asserts. Node 22+ is required by engines.
+      - name: Syntax check (all modules)
+        run: node tests/syntax-check.mjs
+
+      - name: Marketplace readiness
+        run: node tests/registry-manifest.mjs
+
+      - name: Runtime contract (no DSH required)
+        run: node tests/contract-standalone.mjs
+
+  python:
+    name: python checkers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # pymupdf drives every layout rule; Pillow is only needed by asset_min_dpi.
+      - name: Install checker dependencies
+        run: pip install pymupdf openpyxl pillow python-docx
+
+      - name: Checkers compile
+        run: python -m py_compile python/check_numbers.py python/audit_paper.py python/check_hygiene.py python/spec_build.py python/check_spec.py
+
+      - name: Hygiene negative control (planted identity metadata must fail)
+        run: python tests/test_hygiene_negative.py
+
+      - name: Spec e2e on a synthetic fixture
+        run: python tests/test_spec_offline.py
+
+      # Proves the rule packs are not decorative: three non-paper deliverable types
+      # are each graded, and each planted defect must be caught.
+      - name: Cross-domain generality (software / dataset / docs)
+        run: python tests/test_generality.py

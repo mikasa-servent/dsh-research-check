@@ -1,0 +1,5 @@
+# Bundle patch layer: loads this package's main entry as a host-side Cordis plugin
+# (registering the research-check tools). No browser half.
+- insert:
+    - id: dsh-research-check
+      name: dsh-research-check

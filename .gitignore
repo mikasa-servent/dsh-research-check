@@ -1,0 +1,27 @@
+# Dependencies and build output
+node_modules/
+*.tsbuildinfo
+
+# Local ledger and spec files (user data — never published with the plugin)
+paper-ledger.json
+*.ledger.json
+specs/*.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Scratch
+*.tmp
+*.bak
+_e2e-ledger.json
