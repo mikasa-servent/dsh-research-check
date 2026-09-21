@@ -39,6 +39,12 @@ jobs:
       - name: Runtime contract (no DSH required)
         run: node tests/contract-standalone.mjs
 
+      # Drives the real MCP wire protocol over stdio: handshake, tool listing, one
+      # real call, and the error codes a host depends on. This is what makes
+      # "works in other harnesses" a tested claim instead of a promise.
+      - name: MCP protocol smoke
+        run: node tests/mcp-smoke.mjs
+
   python:
     name: python checkers
     runs-on: ubuntu-latest

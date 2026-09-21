@@ -86,11 +86,12 @@
     "smoke": "node tests/probe.mjs",
     "test:hygiene": "python tests/test_hygiene_negative.py",
     "link:peers": "node tests/link-peers.mjs",
-    "test": "npm run check && npm run registry && npm run contract && npm run e2e:spec && npm run test:spec && npm run test:generality",
+    "test": "npm run check && npm run registry && npm run contract && npm run mcp:smoke && npm run e2e:spec && npm run test:spec && npm run test:generality",
     "prepublishOnly": "npm run test",
     "e2e:spec": "node tests/e2e-spec.mjs",
     "test:spec": "python tests/test_spec_offline.py",
-    "test:generality": "python tests/test_generality.py"
+    "test:generality": "python tests/test_generality.py",
+    "mcp:smoke": "node tests/mcp-smoke.mjs"
   },
   "publishConfig": {
     "access": "public",
