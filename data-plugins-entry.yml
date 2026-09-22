@@ -1,0 +1,6 @@
+url: https://github.com/mikasa-servent/dsh-research-check
+name: mikasa-servent/dsh-research-check
+category: tools
+description:
+  en: Grades a deliverable against a spec built from its requirements document, traces reported numbers to a provenance ledger, and audits PDF and OOXML metadata plus archive manifests. Rule packs cover papers, documentation, software hand-overs, datasets and bids. Also exposes the same operations over MCP.
+  zh: 把赛会/期刊/验收/招标要求变成可执行规格并逐条判定交付物，数字台账溯源，排查 PDF 与 DOCX、XLSX 元数据身份信息与压缩包清单一致性；规则包覆盖论文、技术文档、软件交付、数据交付与标书，并通过 MCP 向其他 harness 提供同一套能力。
