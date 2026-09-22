@@ -1,0 +1,28 @@
+# npm does not consult .gitignore, so bytecode caches that git ignores were still
+# packed into the tarball (30 files / 149 kB instead of 25 / 125 kB). The `files`
+# allow-list in package.json names directories, and a dot-directory cannot be
+# excluded from inside it, so the exclusion lives here.
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Development-only material: tests and CI config are not needed to use the plugin.
+# (They remain in the repository, which is what a reviewer reads.)
+tests/
+.github/
+.npmrc
+.git-commit-msg.txt
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local scratch
+*.tgz
+*.tmp
+*.bak
+paper-ledger.json
+*.ledger.json

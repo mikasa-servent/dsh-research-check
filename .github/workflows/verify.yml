@@ -36,6 +36,11 @@ jobs:
       - name: Marketplace readiness
         run: node tests/registry-manifest.mjs
 
+      # What npm would actually ship: bytecode caches and tests once slipped into a
+      # published tarball, because .gitignore does not apply to npm packing.
+      - name: Packed inventory
+        run: node tests/pack-inventory.mjs
+
       - name: Runtime contract (no DSH required)
         run: node tests/contract-standalone.mjs
 

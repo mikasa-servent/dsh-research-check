@@ -4,6 +4,39 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-09-22
+
+### Fixed
+
+- **The published tarball contained Python bytecode caches and the test suite.** 1.4.0
+  shipped 30 files / 149 kB including `python/__pycache__/*.pyc` and `tests/`; it is now
+  23 files / 73 kB. Root cause: `.gitignore` has no effect on npm packing, and a directory
+  named in `package.json`'s `files` allow-list cannot exclude a subdirectory of itself —
+  `.npmignore` removed `tests/` but not `__pycache__`. The allow-list now names files.
+- **The checkers crashed on a GBK console.** Chinese Windows defaults to code page 936;
+  the checkers printed Chinese JSON encoded as GBK while the reader decoded UTF-8, raising
+  `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc0`. It broke `npm publish`
+  through the `prepublishOnly` hook, and CI could not see it because GitHub runners are
+  UTF-8 by default. `python/encoding_guard.py` now forces UTF-8 on stdout/stderr
+  (`errors="replace"`, so one bad character cannot fail a whole compliance report), and
+  every checker calls it first thing in `main()`.
+- **Peer ranges silently excluded harness prereleases.** `>=0.1.2-rc.1` matches
+  `0.1.2-rc.1` but not `0.1.3-rc.1`; `>=0.1.0-rc.1 <0.2.0-0` matches `0.1.0-rc.1` but not
+  `0.1.2-rc.1`. node-semver only admits a prerelease when a comparator on the *same*
+  `major.minor.patch` tuple carries a prerelease tag, so the ranges are now
+  `^0.1.2 || >=0.1.2-rc.1` (and equivalents for cordis and schemastery), verified with
+  semver against the installed harness.
+- Tests no longer depend on the author's machine: the hygiene test builds its own OOXML
+  fixture instead of copying a local file, and both e2e tests take the workspace from
+  `DSH_RESEARCH_WORKSPACE` and skip cleanly when it is absent.
+
+### Added
+
+- **`tests/pack-inventory.mjs`** — asserts what `npm pack` actually ships: no bytecode
+  caches, no tests, every Python module and host adapter present, size budget enforced.
+  It runs the real packer rather than reading configuration, so a future re-inclusion
+  fails the build.
+
 ## [1.4.0] - 2026-09-21
 
 ### Added

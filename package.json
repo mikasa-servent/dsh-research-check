@@ -1,6 +1,6 @@
 {
   "name": "dsh-research-check",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Evidence-chain and conformance checks for any deliverable inside DeepSeek Harness: turn a requirements document (competition rules, journal guidelines, acceptance criteria, tender documents) into an executable spec and grade the deliverable against it; trace every number to a provenance ledger; audit files for identity leaks in PDF/OOXML metadata and archive-manifest consistency. Rule packs cover papers, technical documentation, software hand-overs, datasets and bids. · 交付物证据链与合规校验：把赛会/期刊/验收/招标要求变成可执行规格并逐条自查（页数、摘要单页、页边距、必备文件、许可与变更记录、数据字段与样本量、隐私字段、压缩包清单等），数字台账溯源，PDF 与 DOCX/XLSX 元数据身份信息排查。规则包覆盖论文、技术文档、软件交付、数据交付与标书。",
   "type": "module",
   "engines": {
@@ -16,10 +16,23 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "lib/",
-    "python/",
-    "skill/",
-    "mcp/",
+    "lib/core.js",
+    "lib/index.js",
+    "lib/ledger-cli.js",
+    "lib/ledger.js",
+    "lib/skill.js",
+    "lib/spec-tool.js",
+    "lib/tools.js",
+    "lib/util.js",
+    "mcp/server.mjs",
+    "python/audit_paper.py",
+    "python/check_hygiene.py",
+    "python/check_numbers.py",
+    "python/check_spec.py",
+    "python/encoding_guard.py",
+    "python/rule_packs.py",
+    "python/spec_build.py",
+    "skill/SKILL.md",
     "cordis.patch.yml",
     "README.md",
     "CHANGELOG.md",
@@ -86,12 +99,13 @@
     "smoke": "node tests/probe.mjs",
     "test:hygiene": "python tests/test_hygiene_negative.py",
     "link:peers": "node tests/link-peers.mjs",
-    "test": "npm run check && npm run registry && npm run contract && npm run mcp:smoke && npm run e2e:spec && npm run test:spec && npm run test:generality",
+    "test": "npm run check && npm run registry && npm run test:pack && npm run contract && npm run mcp:smoke && npm run e2e:spec && npm run test:spec && npm run test:generality",
     "prepublishOnly": "npm run test",
     "e2e:spec": "node tests/e2e-spec.mjs",
     "test:spec": "python tests/test_spec_offline.py",
     "test:generality": "python tests/test_generality.py",
-    "mcp:smoke": "node tests/mcp-smoke.mjs"
+    "mcp:smoke": "node tests/mcp-smoke.mjs",
+    "test:pack": "node tests/pack-inventory.mjs"
   },
   "publishConfig": {
     "access": "public",
