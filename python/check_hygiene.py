@@ -64,8 +64,22 @@ def check_files(paths: list[Path]) -> list[dict]:
                 "fix": "把 creator / lastModifiedBy / Company 等清空后再提交",
             })
         elif meta:
-            findings.append({"level": "info", "file": path.name, "meta": meta,
-                             "message": "属性存在但未见身份词"})
+            # Honest about what this check can and cannot do: it matches a keyword list
+            # (school, name, email, account-ish words), so a field holding a bare person
+            # name passes even though it is still an author field. Rather than silently
+            # reporting "clean", surface the values so the human can decide.
+            authored = {k: v for k, v in meta.items()
+                        if k in {"creator", "lastmodifiedby", "author", "company", "manager"}}
+            if authored:
+                findings.append({
+                    "level": "warning", "file": path.name, "meta": meta,
+                    "message": f"属性含作者/单位字段但未命中身份词表：{authored}；"
+                               "关键词表无法识别裸人名，请人工确认是否应清空",
+                    "fix": "如为个人信息，请清空 creator / lastModifiedBy / Company",
+                })
+            else:
+                findings.append({"level": "info", "file": path.name, "meta": meta,
+                                 "message": "属性存在但未见身份词"})
         else:
             findings.append({"level": "info", "file": path.name, "message": "属性为空或无属性部件"})
     return findings

@@ -1,6 +1,6 @@
 {
   "name": "dsh-research-check",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Evidence-chain and conformance checks for any deliverable inside DeepSeek Harness: turn a requirements document (competition rules, journal guidelines, acceptance criteria, tender documents) into an executable spec and grade the deliverable against it; trace every number to a provenance ledger; audit files for identity leaks in PDF/OOXML metadata and archive-manifest consistency. Rule packs cover papers, technical documentation, software hand-overs, datasets and bids. · 交付物证据链与合规校验：把赛会/期刊/验收/招标要求变成可执行规格并逐条自查（页数、摘要单页、页边距、必备文件、许可与变更记录、数据字段与样本量、隐私字段、压缩包清单等），数字台账溯源，PDF 与 DOCX/XLSX 元数据身份信息排查。规则包覆盖论文、技术文档、软件交付、数据交付与标书。",
   "type": "module",
   "engines": {
@@ -37,7 +37,9 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
-    "marketplace-entry.json"
+    "marketplace-entry.json",
+    "docs/TUTORIAL.md",
+    "docs/TUTORIAL.zh.md"
   ],
   "dsh": {
     "bundle": {
@@ -105,7 +107,8 @@
     "test:spec": "python tests/test_spec_offline.py",
     "test:generality": "python tests/test_generality.py",
     "mcp:smoke": "node tests/mcp-smoke.mjs",
-    "test:pack": "node tests/pack-inventory.mjs"
+    "test:pack": "node tests/pack-inventory.mjs",
+    "test:tutorial": "python tests/verify_tutorial.py"
   },
   "publishConfig": {
     "access": "public",

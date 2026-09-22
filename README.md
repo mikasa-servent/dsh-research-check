@@ -1,176 +1,206 @@
 # dsh-research-check
 
-**交付物证据链与合规校验插件** —— 把"要求"变成可执行规格，把"数字"绑回程序输出，交接前一次性查出机械性错误。
+**在交论文、交文档、交数据之前，先让它替你检查一遍。**
 
-> 面向 DeepSeek Harness（DSH）插件；同时提供 **MCP 服务器**与**独立 agent skill**，
-> 因此 Claude Code / Codex / Cursor 等任何支持 MCP 的 harness 也能直接用同一套能力。
+它专门抓那种"明明检查过、却还是被抓出来"的低级错误：数字前后不一致、改了标题忘了改正文、
+文档属性里藏着你的名字和学校、少交了一个文件、页数超了一页。
+
+适用于任何"有要求、要交付"的活儿：论文投稿、软件交付验收、数据交付、标书申报、技术文档。
+**它不是写手，是校对员**——不帮你写内容，只帮你把该对的地方对上。
 
 ```bash
-dsh plugin --profile web add dsh-research-check
+dsh plugin --profile web add dsh-research-check      # 装进 DeepSeek Harness
 ```
 
----
-
-## 它解决什么问题
-
-评审、验收、甲方退回一份交付物，绝大多数理由**不是学术或技术问题，而是机械性错误**——下面每一条都是本插件在真实项目中实际抓到过的：
-
-| 真实缺陷 | 表现 | 谁抓到的 |
-|---|---|---|
-| 图注改了、正文没改 | 图注写 4883 kWh，程序输出是 4760.98 | 台账核对（`research_numbers` + `ledger`） |
-| 两个口径混用 | 正文月度合计 1885.1 万，表里是 1863.5 万 | 规格页面规则（`spec_check`） |
-| 比率表述不严谨 | 写"两个口径的 1/565"，实测只有一个是 565，另一个 583 | 人工复核触发（工具报出比对结果） |
-| 改稿残留旧值 | 摘要写 1536.4，正文定稿是 1521.6 | 台账 `verify` 的锚点探针 |
-| **身份信息泄露** | xlsx 属性里存着 `xueyi`、`企业用户_505363329`；docx 里存着账号名 | `office_metadata_no_identity` |
-| 页数超限 | 正文 31 页，上限 30 | `max_pages`（自动识别附录起始页） |
-| 清单与实物不符 | 论文附录列 11 项，压缩包里实际 12 项 | `manifest_matches_archive` |
-| 交付包里带报错日志 | `run.log` 里满是 Traceback 仍当成交付证据 | `forbidden_text`（会扫交付文件，不只看正文） |
-| 数据不合规 | 交付数据里混入手机号字段 | `dataset_no_sensitive_columns` |
-| 占位符没删 | 对外文档里留着 `TODO`、`待补充` | `placeholder_text` |
-
-**它不做什么**（写进设计与文档，避免误解）：
-- ❌ 不生成论文/文档内容——它是校对器，不是生成器
-- ❌ 不判断两个冲突数字谁对——报告位置与两个候选值，由作者定夺
-- ❌ 不重算公式——数字是**匹配**而非**重新推导**；若程序算错而正文照抄，两边一致仍会通过，结论关键值仍需独立复算
-- ❌ 不评方法、不评文风、不做法律意见
+> 也支持 MCP：Claude Code、Codex、Cursor 等任何支持 MCP 的工具都能用（见 [第 3 步](#第-3-步用其他-ai-工具claude-code--codex--cursor)）。
 
 ---
 
-## 四个工具
+## 目录
 
-| 工具 | 作用 | 写入 |
+- [它能帮你什么（先看这个）](#它能帮你什么先看这个)
+- [三步用起来](#三步用起来)
+- [四个工具的用法](#四个工具的用法)
+- [支持哪些交付物](#支持哪些交付物)
+- [它不会做什么](#它不会做什么)
+- [规格文件与台账](#规格文件与台账)
+- [验证与开发](#验证与开发)
+- [常见问题](#常见问题)
+
+---
+
+## 它能帮你什么（先看这个）
+
+下面每一条，都是**真实发生过**、并且被这个工具抓出来的问题：
+
+| 你可能犯的错 | 具体长这样 | 后果 |
 |---|---|---|
-| **`research_spec`** | **要求 → 可执行规格 → 逐条判定**。把赛会规范/期刊须知/验收标准/招标文件解析成规格 JSON（每条规则带判定器、严重度、作用域、**出处引用**），再对交付物判级 | `build` |
-| **`research_audit`** | 一次性体检：页数上限、摘要单页、空白页、图表是否被引用、PDF 体积、PDF 与 OOXML 元数据身份信息、压缩包清单一致性 | 只读 |
-| **`research_numbers`** | 数字一致性：同句式异值检测；给台账时逐条核对"台账值是否还在文中" | 只读 |
-| **`research_ledger`** | 证据链台账：`teach` 从文稿自动登记候选、`add` 登记带出处的值、`verify` 核对、`list` 查看 | `teach`/`add` |
+| **数字改了正文没改** | 图表里写 4761，正文还写着 4883 | 评审一眼看出你没核对 |
+| **两个口径混用** | 一张表用"计划量"算，另一张用"实际量"算，两个总数对不上 | 被认为数据不可信 |
+| **比率说错** | 写"两个方案都只有 1/565"，其实一个 565、一个 583 | 严谨性打折 |
+| **旧版本残留** | 摘要写 1536.4，定稿是 1521.6（改稿时漏了摘要） | 摘要与正文矛盾 |
+| **文档属性泄露身份** | 你的 Excel/Word 里存着账号名、学校名（**肉眼看不见**） | **匿名评审直接违规** |
+| **页数超限** | 要求正文 ≤30 页，你交了 31 页 | 可能直接被拒 |
+| **清单对不上** | 论文附录列 11 个文件，压缩包里实际 12 个 | **被视为材料不实** |
+| **交付物里有报错** | 交付日志里留着 `Traceback`、`ERROR:` | 显得没测过 |
+| **数据不合规** | 交付数据里混进了手机号字段 | 合规风险 |
+| **占位符没删** | 对外文档里留着 `TODO`、`待补充` | 非常尴尬 |
 
-外部 harness 通过 **MCP** 获得等价能力（工具名 `spec_build` / `spec_check` / `audit` / `numbers` / `ledger` / `list_rules`）：
+**核心价值一句话**：这些错误自己很难查（尤其是元数据里的身份信息——**你根本看不见**），
+但被发现一次，代价往往是一整轮返工甚至取消资格。让工具在交之前替你过一遍。
+
+---
+
+## 三步用起来
+
+### 第 1 步：把"要求"喂给它（只做一次）
+
+你手上一定有一份要求文件：赛会格式规范、期刊投稿须知、甲方验收标准、导师给的模板。
+把这个文件交给它，它会变成一份**能自动核对的清单**：
+
+```bash
+python python/spec_build.py --requirements 格式规范.doc --out specs/我的要求.json \
+    --profile academic --name "竞赛论文格式规范"
+```
+
+它会告诉你提取出了多少条规则，**每条规则都带出处**（引用要求文件里的原话），例如：
 
 ```json
-{ "transport": "stdio", "serverName": "research-check",
-  "command": "node", "args": ["<plugin>/mcp/server.mjs"] }
+{
+  "id": "doc.body_pages",
+  "title": "正文页数上限",
+  "check": "max_pages",
+  "severity": "hard",
+  "params": { "limit": 30 },
+  "source": "…论文从第四页开始是正文内容（不要目录，不超过30页）…"
+}
 ```
+
+⚠️ **然后花两分钟人工看一眼**：确认数字对不对（30 页？20 MB？）。
+有些规则需要你填参数（比如"必须提交哪些文件"），空着的规则它会如实报"没检查"——**不会假装通过**。
+
+### 第 2 步：交之前，一句命令自查
+
+```bash
+python python/check_spec.py --spec specs/我的要求.json --root . \
+    --pdf 我的论文.pdf --files 交付文件1.xlsx 交付文件2.docx --archive 材料.zip
+```
+
+输出是中文表格，通过的打 ✓，违反的标 ✗ 并告诉你**为什么**（引用要求原文）：
+
+```
+[ok  ] hard  正文页数上限          正文 30 页 / 上限 30 页
+[FAIL] hard  文档属性不得含身份信息   属性命中：{'creator': '张三'}
+[ok  ] soft  图表必须被引用          全部被引用
+```
+
+### 第 3 步：用其他 AI 工具（Claude Code / Codex / Cursor）
+
+如果你不用 DeepSeek Harness，可以用 MCP 接入——在工具的 MCP 配置里加一段：
+
+```json
+{
+  "transport": "stdio",
+  "serverName": "research-check",
+  "command": "node",
+  "args": ["<插件目录>/mcp/server.mjs"]
+}
+```
+
+之后你的 AI 就能调用 `spec_build` / `spec_check` / `audit` / `numbers` / `ledger` 五个能力。
+
+> 📖 **想跟着做一遍？** 完整教程（从零开始、每步都有命令与预期输出）：
+> [中文](docs/TUTORIAL.zh.md) · [English](docs/TUTORIAL.md)
 
 ---
 
-## 要求 → 规格：六类交付物规则包
+## 四个工具的用法
 
-`research_spec(action="build", profile=…)` 选择规则包；`profile` 决定"哪些要求会被翻译成可判定规则"。
+装好之后，你**用大白话让 AI 去用**就行，不用背命令：
 
-| profile | 适用对象 | 规则数 | 典型规则 |
-|---|---|---|---|
-| `academic` | 学位/竞赛/期刊论文 | 29 | 正文页数、摘要单页、图表引用、页边距、行距字号、摘要内公式 |
-| `software` | 软件交付、项目验收、发版 | 15 | 必备文件、LICENSE、CHANGELOG、报错标记残留、可追溯性（人工） |
-| `dataset` | 数据交付、数据集 | 14 | 字段齐备、样本量下限、隐私字段、数据字典 |
-| `docs` | 技术文档、说明书、手册 | 13 | 段落字数、版本号、联系方式、TODO 残留 |
-| `tender` | 标书、申报书 | 12 | 章节齐备、逐条响应（人工）、违规承诺（人工） |
-| `generic` | 任何交付物 | 9 | 体积、命名、身份元数据、清单一致性、占位符 |
-
-**37 个判定器**，按用途分组：
-
-| 组 | 数量 | 判定器 |
+| 你可以这样说 | 实际调用的工具 | 它会做什么 |
 |---|---|---|
-| 版面（PDF） | 9 | `max_pages` `min_pages` `abstract_first_page` `abstract_within_page` `no_blank_page` `all_figures_referenced` `all_tables_referenced` `max_pdf_bytes` `metadata_no_identity` |
-| 结构（源码/文本） | 7 | `max_sections` `max_subsections_per_section` `no_toc` `forbidden_text` `placeholder_text` `required_text_pattern` `version_string_present` |
-| 排版（源码级） | 6 | `linespread_min` `fontsize_min` `page_geometry` `margins_min` `bibliography_placeholders` `math_in_abstract` |
-| 素材 | 4 | `asset_format` `asset_naming` `asset_min_dpi` `no_asset_duplicates` |
-| 交付物通用 | 8 | `file_size_max` `office_metadata_no_identity` `file_naming` `manifest_matches_archive` `archive_size_max` `bundle_no_forbidden_files` `required_files_present` `max_paragraph_chars` |
-| 数据交付 | 3 | `dataset_columns_present` `dataset_row_count` `dataset_no_sensitive_columns` |
+| "帮我按格式要求检查一下论文" | `research_spec` | 按要求清单逐条核对 |
+| "检查我的论文和压缩包，交之前看一眼" | `research_audit` | 查页数、空白页、图表引用、身份信息、清单一致性 |
+| "我改了结果，帮我核对论文里的数字有没有漏改" | `research_numbers` | 找出前后矛盾的数字 |
+| "把这个数字和它的来源记下来，以后好核对" | `research_ledger` | 建立"数字—出处"台账 |
 
-### 三条设计纪律
+**推荐的工作流**（顺序很重要）：
 
-1. **每条规则必须声明判定器**，否则规格加载即报错。无法机器判定的写成 `manual`，进人工清单——**绝不假装能查**。（例如"行距是否 1.5 倍"在 PDF 里已固化，只能判源码；"测试是否覆盖需求"只能人工。）
-2. **`skipped` 不算通过**。缺输入、缺可选库、参数没填，都如实报 `skipped`；报告里绝不与 `pass` 混同。
-3. **每条判定都带出处引用**（`source`），回复评审/甲方时可直接引用条款原文。
-
----
-
-## 安装
-
-### DSH 插件
-
-```bash
-# 1) 链接 DSH 的 peer 包（链接安装必须做，否则报 ERR_MODULE_NOT_FOUND: @deepseek-ai/dsh-tools）
-node tests/link-peers.mjs
-
-# 2) 装进某个 profile（会自动写进该 profile 的 dsh.profile.bundles）
-dsh plugin --profile web add link:C:\path\to\dsh-research-check
-
-# 3) 重启该 profile —— 工具在启动时注册，重启后模型即可调用
+```
+① 先建台账，记下关键数字和它们的来源
+② 跑程序，刷新台账里的数值
+③ 改正文和图表（两个地方都要改！）
+④ 核对：台账里的数字在正文里还找得到吗？
+⑤ 交之前跑一遍格式检查
 ```
 
-### 校验核心的运行依赖
+命令行直接用法：
 
 ```bash
-pip install pymupdf openpyxl pillow python-docx
-```
+# 建台账：从文稿里自动找出带单位的数字，登记成候选
+node lib/ledger-cli.js teach --ledger paper-ledger.json --paper 论文.tex \
+    --unit-filter 万元 --min-abs 100
 
-- `pymupdf`：所有版面规则（页数、摘要、空白页、图表引用、PDF 元数据）
-- `openpyxl`：xlsx 数据交付与 Office 属性
-- `pillow`：位图 DPI 规则；`python-docx`：段落长度与 docx 属性
+# 手动登记一条（把"这个数字从哪来"钉住）
+node lib/ledger-cli.js add --ledger paper-ledger.json \
+    --key q3.total_cost --value 1521.6 --unit 万元 \
+    --source code/q3.py --anchor 全年费用
 
-未检测到 Python 时，工具返回 `NO_PYTHON`；可用 `DSH_RESEARCH_PYTHON` 指定解释器。
+# 核对：台账里的值还在文稿里吗？（--near 会额外提示"同位置的相似数值"）
+node lib/ledger-cli.js verify --ledger paper-ledger.json --paper 论文.pdf --near
 
-### 独立 agent skill（其他 harness）
-
-```bash
-cp skill/SKILL.md ~/.dsh/skills/research-evidence-check/        # DSH 用户级
-cp skill/SKILL.md <project>/.dsh/skills/research-evidence-check/ # 项目级，随仓库共享
-cp skill/SKILL.md ~/.agents/skills/research-evidence-check/      # .agents/skills 约定
+# 体检：页数、摘要、空白页、身份信息、压缩包清单
+python python/audit_paper.py --paper 论文.pdf --archives 材料.zip
 ```
 
 ---
 
-## 快速上手
+## 支持哪些交付物
 
-### 1. 先从要求文件生成规格
+同一个工具，换一份要求文件，就能用在完全不同的场景。`--profile` 决定用哪套规则：
 
-```bash
-# 论文
-python python/spec_build.py --requirements format2026.doc --out specs/cumcm-2026.json \
-    --profile academic --name "2026 全国大学生数学建模竞赛（论文格式规范）"
-# 软件验收
-python python/spec_build.py --requirements 验收标准.docx --out specs/acceptance.json \
-    --profile software --name "软件交付验收标准"
+| 场景 | `--profile` | 它重点查什么 |
+|---|---|---|
+| 论文 / 学位论文 / 期刊投稿 | `academic` | 页数、摘要单页、图表引用、页边距、行距字号 |
+| 软件交付 / 项目验收 / 发版 | `software` | 必备文件、LICENSE、变更记录、日志里的报错 |
+| 数据交付 / 数据集 | `dataset` | 字段齐备、样本量、隐私字段、数据字典 |
+| 说明书 / 技术文档 / 手册 | `docs` | 段落长度、版本号、联系方式、TODO 残留 |
+| 标书 / 申报书 | `tender` | 章节齐备、逐条响应 |
+| 任何交付物 | `generic` | 体积、命名、身份信息、清单一致性、占位符 |
 
-python python/spec_build.py --list-profiles     # 查看可用类型与规则数
-```
-
-生成后**逐条复核**：确认 `params`（页数/体积/required/manifest）、读一遍 `source` 引用，
-补齐留空参数。留空的规则会在判定时如实报 `skipped`——那是诚实的失败，不是通过。
-
-### 2. 对着交付物判定
+**共 37 个可判定的检查项**。查看每类的规则数：
 
 ```bash
-# 论文：源码 + 成稿 + 交付文件 + 压缩包
-python python/check_spec.py --spec specs/cumcm-2026.json --root . \
-    --doc paper/main.tex --pdf 论文初稿.pdf \
-    --files 论文初稿.pdf support.zip --archive support.zip
-
-# 软件交付：只看文件类规则
-python python/check_spec.py --spec specs/acceptance.json --root . \
-    --files README.md LICENSE CHANGELOG.md run.log
-
-# 格式化输出（中文表格）
-python tests/run_spec_check.py --spec specs/cumcm-2026.json
+python python/spec_build.py --list-profiles
 ```
 
-### 3. 在会话里用（DSH）
+**跨场景实测**（`python tests/test_generality.py`，自动化跑，每次发布前都会验证）：
 
-```
-research_audit(paper="论文初稿.pdf", archives=["support.zip"], manifest=["result1.xlsx", "..."])
-research_numbers(paper=["paper/main.tex"], ledger="paper-ledger.json")
-research_ledger(action="add", key="q3.total_cost", value=1521.6, unit="万元",
-                source="code/q3_rolling_mpc.py", anchor="全年费用")
-research_spec(action="check", spec="specs/cumcm-2026.json", pdf="论文初稿.pdf")
-```
+| 交付物 | 干净版本 | 故意做坏的版本 → 被抓住的问题 |
+|---|---|---|
+| 软件包 | 0 错误 | 缺 `README.md`；日志里有 `Traceback` |
+| 数据集 | 0 错误 | 缺字段；样本量不足；混入手机号 |
+| 技术文档 | 0 错误 | 段落超长；`TODO` 没删；Word 属性里有作者名 |
 
 ---
 
-## 规格（spec）与台账（ledger）格式
+## 它不会做什么
 
-### 规格：每条规则都是一份可复现的判定依据
+先说清楚，免得你误会：
+
+- ❌ **不帮你写内容**——它只核对，不生成
+- ❌ **不判断两个数字谁对**——它会告诉你"这里有两个互相矛盾的数"以及它们在哪，
+  由你来决定改哪个（只有你知道哪个是新的）
+- ❌ **不重新推导公式**——数字是"比对"而不是"重算"。**如果程序算错了、正文照抄了这个错值，
+  两边一致就会通过**。所以对结论起决定作用的数字，仍然要自己独立复算
+- ❌ **不评价方法好坏、不做法律意见**
+
+---
+
+## 规格文件与台账
+
+### 规格（spec）：把要求变成清单
 
 ```json
 {
@@ -180,121 +210,88 @@ research_spec(action="check", spec="specs/cumcm-2026.json", pdf="论文初稿.pd
   "scope": "body",
   "severity": "hard",
   "params": { "limit": 30, "appendix_marker": ["附录"] },
-  "why": "页数是评委翻页时最先感知的硬约束，超一页即违规。",
-  "source": "…第四条论文从第四页开始是正文内容（不要目录，不超过30页）…"
+  "why": "页数是评委最先感知的硬约束",
+  "source": "…要求文件里的原话…"
 }
 ```
 
-- `severity`：`hard` → error、`soft` → warning、`info` → 不改判
-- `scope`：`document` / `body`（附录前）/ `per-file` / `bundle`
-- `check`：必须是 37 个判定器之一，或 `manual`
+- `check`：用哪个检查项，必须是 37 个之一，或 `manual`（人工清单）
+- `scope`：`document`（整份）/ `body`（附录前）/ `per-file` / `bundle`
+- `severity`：`hard` 违反即报错 / `soft` 只提醒 / `info` 只记录
 
-### 台账：数字与出处的绑定
+**三条纪律**（决定了它不会变成"只会说通过"的花架子）：
+
+1. **每条规则必须指定检查项**，否则加载就报错。机器判断不了的（比如"测试是否覆盖需求"）
+   写成 `manual`，进入人工清单——**绝不假装能查**。
+2. **没检查 = 没检查**：缺输入、缺参数时如实报 `skipped`，**绝不混进"通过"里**。
+3. **每条判定都带出处**，你可以拿着它去答辩、回复审稿意见。
+
+### 台账（ledger）：把数字和出处钉在一起
 
 ```json
 {
-  "schema": 1,
   "entries": [
     {
       "key": "q3.total_cost",
       "value": 1521.6,
       "unit": "万元",
-      "source": "code/q3_rolling_mpc.py",
-      "anchor": "全年费用",
-      "revision": 3
+      "source": "code/q3.py",
+      "anchor": "全年费用"
     }
   ]
 }
 ```
 
-- `key` 用**语义名**而不是数值 —— 程序重跑后刷新数值不必改正文
-- `anchor` 是数值附近的固定短语，`verify` 用它定位并检查"同锚点处是否出现量级相近的异值"
-- `value` 一律数值，单位单独放 `unit`，避免把「1.5 万元」和「15000 元」判成两个事实
+- `key` 用**语义名**（`q3.total_cost`），不要用数字本身当 key——程序重跑后只改 `value`，正文不用动
+- `unit` 单独放，避免把「1.5 万元」和「15000 元」当成两件不同的事
+- `anchor` 是正文里的固定短语，用来定位并检查"同一位置是否出现了量级相近的异值"
 
 ---
 
-## 实测样例
+## 验证与开发
 
-**真实论文**（2026 CUMCM C 题，87 页 / 正文 30 页，规格 19 条规则）：
-
-```
-[ok  ] hard  gen.archive_manifest   与清单逐条一致（清单 自动识别 13 项）
-[ok  ] hard  doc.body_pages         正文（附录自第 31 页起）30 页 / 上限 30 页
-[ok  ] hard  doc.abstract_within_page 摘要（含关键词）在 1 页内
-[ok  ] hard  doc.margins            页边距 {top:2.5, bottom:2.5, left:2.5, right:2.5}
-[ok  ] hard  doc.metadata_identity  属性未见身份信息
-[skip] hard  gen.office_identity    未提供 docx/xlsx 文件（需 --files 传入）
-→ 15 通过 / 0 错误 / 2 跳过
-```
-
-**跨领域**（`python tests/test_generality.py`，三类非论文交付物，各含干净件与缺陷件）：
-
-| 交付物 | 干净件 | 缺陷件被拦截 |
-|---|---|---|
-| 软件包 | 0 error | 缺 `README.md`；日志含 `Traceback`/`ERROR:` |
-| 数据集 | 0 error | 缺字段；样本量不足；混入手机号字段 |
-| 技术文档 | 0 error | 超长段落（warning）；`TODO` 残留；docx 作者身份（error） |
-
----
-
-## 验证
-
-九段验证，全部可在本地复现：
+九段验证，全部可以在本地复现：
 
 ```bash
-npm test                 # 语法 + 上架清单 + 依赖无关契约 + 规格 e2e + 离线回归 + 跨领域
-npm run test:generality  # 只跑跨领域（软件/数据/文档，含负例）
-npm run mcp:smoke        # MCP 协议层（stdio 真实报文）
-npm run boot             # 真启动一个临时 profile，确认不会把 profile 启崩
-npm run test:hygiene     # 负例：故意写入身份元数据，必须判 fail
+npm test                 # 语法 + 上架清单 + 打包清单 + 契约 + MCP + 规格 + 跨领域
+npm run test:generality  # 跨场景（软件/数据/文档，含"故意做坏"的负例）
+npm run test:pack        # 检查 npm 实际会打包什么
+npm run mcp:smoke        # MCP 协议层（真实报文）
+npm run boot             # 真启动一个临时实例，确认不会把 DSH 启动搞崩
 ```
 
-在 CI 里（`.github/workflows/verify.yml`）跑 Node 22/24 + Python 3.13：
+关键设计：**每个功能都配了"负例"**——故意写错的东西必须被抓出来。
+只会说"通过"的检查器是装饰品，所以每个功能都有对应的"必须抓住"测试。
 
-| 阶段 | 结果 |
-|---|---|
-| 语法（20 模块，动态枚举） | 0 失败 |
-| 上架清单（registry 字段、文件、skill frontmatter） | 35 通过 |
-| 依赖无关运行期契约（用 stub 替身，CI 无需 harness） | 33 通过 |
-| MCP 协议（initialize / tools/list / tools/call / 错误码） | 20 通过 |
-| 离线规格回归（合成论文 + 3 个负例） | 全部通过 |
-| 跨领域回归（software / dataset / docs） | 全部通过 |
-| DSH 运行期契约 + 工具 e2e + 规格 e2e | 38 通过 / 4 次调用 / 负例拦截 |
-| 真启动 profile | pass |
+在 CI（`.github/workflows/verify.yml`）上跑 Node 22/24 + Python 3.13。
 
 ---
 
-## 已知边界
+## 常见问题
 
-- **数字是匹配不是重算**：程序算错而正文照抄，两边一致仍会通过。结论关键值请独立复算。
-- **单位表是白名单**（`万元/kWh/MW/%` 等），新领域需在 `python/check_numbers.py` 的 `NUM_UNITS` 增补。
-- **压缩包只读 zip**；`.rar` 需外部解包。
-- **段落长度只认 `.docx`**：PDF 无段落边界，该规则会报 `skipped` 而不是猜。
-- **人工清单无法自动化**：`manual` 条目（原创性、可追溯性、测试覆盖）需要人逐条确认。
+**Q：装完没反应 / 工具不出现？**
+A：DSH 插件在**启动时**注册，需要重启 profile。MCP 方式则要重启你的 AI 工具。
 
----
+**Q：报 `NO_PYTHON`？**
+A：检查核心需要 Python 3.10+。装了还是报，就设环境变量 `DSH_RESEARCH_PYTHON` 指向解释器路径。
 
-## 目录结构
+**Q：报 `skipped` 是什么意思？**
+A：**"这条我没查"**——通常缺输入（比如没给 PDF、没给文件清单）或规则参数没填。
+它**不等于通过**，请补齐输入或转人工确认。
 
-```
-lib/index.js        插件入口（apply / inject / Config / systemPrompt / skills）
-lib/core.js         宿主无关执行核心 —— 插件与 MCP 服务器共用，避免两套逻辑漂移
-lib/tools.js        四个 DSH 工具的注册与路径解析（不含业务逻辑）
-lib/spec-tool.js    规则词汇表与交付物 profile 定义
-lib/ledger.js       台账读写、逐条核对、锚点探针
-lib/ledger-cli.js   命令行入口（不依赖 DSH）
-lib/skill.js        读取并注册内嵌 skill
-lib/util.js         Python 解释器发现、进程执行、结果汇总
-mcp/server.mjs      零依赖 MCP 服务器（stdio JSON-RPC 2.0）
-skill/SKILL.md      独立 agent skill（五阶段流程）
-python/rule_packs.py   六类交付物规则包（模板 + 判定器 + 出处）
-python/spec_build.py   要求文本 → 规格 JSON
-python/check_spec.py   规格 → 判定报告（37 个判定器）
-python/check_numbers.py 数字抽取与一致性
-python/audit_paper.py   版面与文档卫生体检
-python/check_hygiene.py 文档元数据专项
-tests/                  九段验证（含负例与跨领域）
-```
+**Q：中文输出乱码？**
+A：1.4.1 起已修复（脚本强制 UTF-8 输出）。旧版本请升级。
+
+**Q：会不会把我的论文上传到什么地方？**
+A：不会。所有检查都在你本机命令行完成，插件不联网、不收集任何数据。
+
+**Q：能检查 Word 文档吗？**
+A：能。段落长度、身份元数据类规则直接读 `.docx`；页数、摘要、图表引用类规则需要 PDF
+（Word 转 PDF 后即可）。
+
+**Q：我的要求文件格式很乱（表格、编号、中英混排）能识别吗？**
+A：能解析 `.doc` / `.docx` / `.md` / `.txt`。它用的是**模板匹配**而不是自由发挥——
+只收录要求文件里明确出现、且机器能判定的条款，其余进入"需要人工确认"清单，不会瞎猜。
 
 ---
 
@@ -306,4 +303,7 @@ MIT
 
 ## 由来
 
-本插件从一条真实的论文生产线里抽出来：先是给单篇论文写检查脚本，后来发现**每一个检查都对应一个真实发生过的缺陷**，而这类缺陷与学科无关——凡是"数据 → 图表 → 结论"的交付物都会犯。于是把"要求"抽象成规格、把"数字"绑回台账、把判定器做成词汇表，让它能用在论文、文档、软件、数据、标书五类交付上。
+最初是给一篇真实的竞赛论文写检查脚本，写着发现**每一个检查都对应一个真实犯过的错**，
+而这类错误与学科无关——凡是"数据 → 图表 → 结论"的活儿都会犯。
+于是把"要求"抽象成规格、把"数字"绑回台账、把检查项做成词汇表，
+让它能用在论文、文档、软件、数据、标书五类交付上。

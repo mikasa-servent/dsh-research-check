@@ -4,6 +4,31 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-22
+
+### Added
+
+- **Beginner-facing documentation.** The README now leads with what the plugin actually catches
+  (ten real defects, each with its consequence) instead of installation instructions, and two
+  step-by-step tutorials ship with it:
+  - [docs/TUTORIAL.zh.md](docs/TUTORIAL.zh.md) — 中文，三个场景（论文 / 软件交付 / 数字核对），
+    每步都有命令与预期输出；
+  - [docs/TUTORIAL.md](docs/TUTORIAL.md) — the same three scenarios in English.
+- **`tests/verify_tutorial.py`** — executes every command the tutorials tell a reader to run,
+  against a generated example project, and compares the output with what the tutorial claims.
+  A tutorial that does not work is worse than no tutorial, so it is now a tested artifact.
+- `check_hygiene.py` distinguishes two levels where it previously reported one: an identity
+  *keyword* hit remains a hard error, while a property holding a bare person name — which the
+  keyword list cannot recognise — now raises a warning that prints the values so a human decides.
+  Reporting "no identity words found" for a field that plainly holds an author name was
+  technically true and practically misleading.
+
+### Notes
+
+- Verified: 26 assertions in `tests/verify_tutorial.py` pass, covering the spec build, the
+  conformance check, the hygiene check (all three outcomes), the ledger flow, and the
+  `software` profile.
+
 ## [1.4.1] - 2026-09-22
 
 ### Fixed
