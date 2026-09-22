@@ -16,6 +16,7 @@ import re
 import sys
 import zipfile
 from pathlib import Path
+from encoding_guard import force_utf8_output
 
 IDENTITY_WORDS = ("学校", "大学", "学院", "校区", "赛区", "参赛队", "指导教师", "姓名",
                   "学号", "队号", "企业用户", "university", "school", "@")
@@ -107,6 +108,7 @@ def check_archives(paths: list[Path], manifest: list[str]) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_output()
     parser = argparse.ArgumentParser(description="文档卫生检查")
     parser.add_argument("--files", nargs="*", default=[])
     parser.add_argument("--archives", nargs="*", default=[])

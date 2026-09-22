@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -35,7 +36,8 @@ def main() -> int:
                "--doc", args.doc, "--pdf", args.pdf, "--archive", args.archive]
     if args.files:
         command += ["--files", *args.files]
-    result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8")
+    result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
     if result.returncode > 1 or not result.stdout.strip():
         print(result.stdout)
         print(result.stderr, file=sys.stderr)

@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import os
 import subprocess
 import sys
 import tempfile
@@ -26,7 +27,8 @@ BUILD = PLUGIN / "python" / "spec_build.py"
 
 
 def run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8")
+    return subprocess.run(argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
 
 
 def load_checker():

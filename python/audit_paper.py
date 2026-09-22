@@ -16,6 +16,7 @@ import re
 import sys
 import zipfile
 from pathlib import Path
+from encoding_guard import force_utf8_output
 
 META_KEYS = ("creator", "lastModifiedBy", "author", "company", "manager", "title", "subject")
 IDENTITY_WORDS = ("学校", "大学", "学院", "校区", "赛区", "参赛队", "指导教师", "姓名",
@@ -198,6 +199,7 @@ def audit_hygiene(files: list[Path], archives: list[Path],
 # CLI
 # --------------------------------------------------------------------------
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_output()
     parser = argparse.ArgumentParser(description="投稿体检：版面硬约束 + 文档卫生")
     parser.add_argument("--paper", required=True, help="参赛论文 PDF")
     parser.add_argument("--files", nargs="*", default=[], help="随附的 docx/xlsx 等文件")

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -70,7 +71,16 @@ MAIN_TEX_HEADING = "\\section{问题一}"
 
 
 def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(command, cwd=cwd, capture_output=True, text=True, encoding="utf-8")
+    """Run a checker, forcing UTF-8 on both sides of the pipe.
+
+    The checker writes Chinese JSON; on a GBK console (Chinese Windows cmd) it would
+    encode with GBK and this side would fail to decode as UTF-8. The checkers now
+    self-force UTF-8, and the environment is pinned here too so the test does not
+    depend on however it was launched.
+    """
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+    return subprocess.run(command, cwd=cwd, capture_output=True, text=True,
+                          encoding="utf-8", env=env)
 
 
 CJK_FONT = "china-ss"

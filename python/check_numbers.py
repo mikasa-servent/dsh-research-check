@@ -22,6 +22,7 @@ import math
 import re
 import sys
 from pathlib import Path
+from encoding_guard import force_utf8_output
 
 
 # --------------------------------------------------------------------------
@@ -252,6 +253,7 @@ def cross_source_conflicts(papers: list[Path], docs: dict[str, list[dict]],
 # CLI
 # --------------------------------------------------------------------------
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_output()
     parser = argparse.ArgumentParser(description="论文数字一致性校验")
     parser.add_argument("--paper", nargs="+", required=True, help="论文与文本源（.pdf/.tex/.md/.txt）")
     parser.add_argument("--data", nargs="*", default=[], help="数据源（.csv/.xlsx），作为证据侧")

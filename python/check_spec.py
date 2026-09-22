@@ -25,6 +25,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from encoding_guard import force_utf8_output
+
 # --------------------------------------------------------------------------
 # 判定器注册表：check 名 -> 需要的输入源
 # --------------------------------------------------------------------------
@@ -1044,6 +1047,7 @@ def json_default(value):
 
 
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_output()
     parser = argparse.ArgumentParser(description="交付物规格符合性校验")
     parser.add_argument("--spec", required=True, help="规格 JSON")
     parser.add_argument("--root", default=".", help="工程根目录（相对路径的基准）")

@@ -24,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rule_packs import PROFILE_NAMES, templates_for  # noqa: E402
+from encoding_guard import force_utf8_output
 
 # 需要人工确认的解析缺口：文本里出现过、但无法机器判定的表述
 REVIEW_HINTS = [
@@ -122,6 +123,7 @@ def build(text: str, name: str, profile: str) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_output()
     parser = argparse.ArgumentParser(description="从要求文本生成规格文件")
     parser.add_argument("--requirements", help="要求文本（.doc/.docx/.md/.txt）")
     parser.add_argument("--out", help="输出 spec JSON")
